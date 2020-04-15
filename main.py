@@ -25,7 +25,7 @@ R0 = 0
 init = [S0,I0,R0]
 days = 5
 
-def pred(beta, gamma): 
+def pred(days, beta, gamma): 
     # beta:  transmit rate 
     # gamma: recover rate 
 
@@ -50,7 +50,7 @@ def pred(beta, gamma):
 
 # loss function
 def loss(x): 
-    prediction = pred(x[0], x[1])
+    prediction = pred(days, x[0], x[1])
     mal = np.sum(np.abs(np.subtract(prediction, obs))) # mean absolute error 
     return mal
     
@@ -59,16 +59,18 @@ x0 = [0.9, 0.1]
 res = opt.minimize(loss, x0, method = 'BFGS')
 
 # prediction 
-z = pred(res.x[0], res.x[1])
-tspan = np.linspace(0,days,days+1) 
+adddays = 2
+days_2 = days + adddays
+z = pred(days_2, res.x[0], res.x[1])
+tspan = np.linspace(0,days_2,days_2+1) 
 
 # plot 
 plt.plot(tspan,z[:,0],'b-',label=r's')
-plt.plot(tspan,S, 'b--', label=r's_obs')
+plt.plot(tspan[0:len(tspan)-adddays],S, 'b--', label=r's_obs')
 plt.plot(tspan,z[:,1],'r-',label=r'i')
-plt.plot(tspan,I, 'r--', label=r'i_obs')
+plt.plot(tspan[0:len(tspan)-adddays],I, 'r--', label=r'i_obs')
 plt.plot(tspan,z[:,2],'g-',label=r'r')
-plt.plot(tspan,R, 'g--', label=r'r_obs')
+plt.plot(tspan[0:len(tspan)-adddays],R, 'g--', label=r'r_obs')
 plt.ylabel('response')
 plt.xlabel('time')
 plt.legend(loc='best')
