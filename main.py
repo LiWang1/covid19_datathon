@@ -8,70 +8,43 @@ import numpy as np
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
-
+import pandas as pd 
+import datetime
+from datetime import date
+import function as func
 
 
 # read the data
-S = [990, 900, 600, 200, 100, 0  ]  # susceptible people 
-I = [10,  100, 300, 600, 600, 600]  # infected people 
-R = [0,     0, 100, 200, 300, 400]  # recoverd people 
-obs = np.transpose(np.array([S, I, R]))
+confirmed = pd.read_csv('data/time_series_covid19_confirmed_global.csv')
+deaths = pd.read_csv('data/time_series_covid19_deaths_global.csv')
+recovered = pd.read_csv('data/time_series_covid19_recovered_global.csv')
+
+colnames = confirmed.columns.tolist()
+
+start = datetime.datetime.strptime(colnames[4], "%m/%d/%y")
+end = datetime.datetime.strptime(colnames[-1], "%m/%d/%y")
+date_generated = [start + datetime.timedelta(days=x) for x in range(0, (end-start).days)]
+
+countries = ['Italy', 'Germany']
+population = [60.5*10**6, 82.8*10**6]
+
+# time delta for prediction in days
+prediction_delta = 2
 
 
-# set up initial conditions 
-S0 = 990 
-I0 = 10
-R0 = 0 
-init = [S0,I0,R0]
-days = 5
-
-def pred(days, beta, gamma): 
-    # beta:  transmit rate 
-    # gamma: recover rate 
-
-    sir0 = init # initial condition  
+for i in range(len(countries)):
+    confirmed_region = confirmed.loc[confirmed['Country/Region'] == countries[i]]
+    deaths_region = deaths.loc[deaths['Country/Region'] == countries[i]]
+    recovered_region = recovered.loc[recovered['Country/Region'] == countries[i]]
     
-    N = sum(init) # total population 
+    confirmed_region = np.asarray([float(confirmed_region[colnames[4+i+1]]) for i in range(len(date_generated))])
+    deaths_region = np.asarray([float(deaths_region[colnames[4+i+1]]) for i in range(len(date_generated))])
+    recovered_region = np.asarray([float(recovered_region[colnames[4+i+1]]) for i in range(len(date_generated))])
     
-    # time span 
-    t = np.linspace(0,days,days+1) 
+    susceptible = population[i] - confirmed_region
+    infect = confirmed_region - recovered_region - deaths_region
+    recover = recovered_region
     
-    # SIR model 
-    def sir_model(sir,t):
-        dsdt = - beta*sir[0]*sir[1]/N
-        didt = beta*sir[0]*sir[1]/N - gamma*sir[1]
-        drdt = gamma*sir[1]
-        dsirdt = [dsdt, didt, drdt]
-        return dsirdt
+    days = len(recovered_region)-1
+    func.prediction(susceptible,infect,recover, days, prediction_delta)
 
-    # solve 
-    z = odeint(sir_model,sir0,t)
-    return z
-
-# loss function
-def loss(x): 
-    prediction = pred(days, x[0], x[1])
-    mal = np.sum(np.abs(np.subtract(prediction, obs))) # mean absolute error 
-    return mal
-    
-# optimization 
-x0 = [0.9, 0.1]
-res = opt.minimize(loss, x0, method = 'BFGS')
-
-# prediction 
-adddays = 2
-days_2 = days + adddays
-z = pred(days_2, res.x[0], res.x[1])
-tspan = np.linspace(0,days_2,days_2+1) 
-
-# plot 
-plt.plot(tspan,z[:,0],'b-',label=r's')
-plt.plot(tspan[0:len(tspan)-adddays],S, 'b--', label=r's_obs')
-plt.plot(tspan,z[:,1],'r-',label=r'i')
-plt.plot(tspan[0:len(tspan)-adddays],I, 'r--', label=r'i_obs')
-plt.plot(tspan,z[:,2],'g-',label=r'r')
-plt.plot(tspan[0:len(tspan)-adddays],R, 'g--', label=r'r_obs')
-plt.ylabel('response')
-plt.xlabel('time')
-plt.legend(loc='best')
-plt.show()
